@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: wordpress-deploy
+  name: wordpress-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress-deploy
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: wordpress-deploy
+    spec:
+      containers:
+      - image: wordpress:php8.2-apache
+        name: wordpress
+        resources: {}
+        ports:
+        - containerPort: 80
+        env:
+        - name: WORDPRESS_DB_HOST
+          value: mysql-deploy
+        - name: WORDPRESS_DB_USER
+          value: wpuser
+        - name: WORDPRESS_DB_PASSWORD
+          value: "123456"
+        - name: WORDPRESS_DB_NAME
+          value: wordpress
+
