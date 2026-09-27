@@ -24,17 +24,8 @@ spec:
         - name: WORDPRESS_DB_HOST
           value: mysql-deploy
         - name: WORDPRESS_DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: mysql-user
+          value: {{ .Values.mysql.secret.user | quote }}
         - name: WORDPRESS_DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: mysql-password
+          value: {{ .Values.mysql.secret.password | quote }}
         - name: WORDPRESS_DB_NAME
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: mysql-database
+          value: {{ .Values.mysql.secret.database | quote }}

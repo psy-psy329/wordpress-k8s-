@@ -4,10 +4,10 @@ mysql:
   replicas: 1
   storage: 1Gi
   secret:
-    rootPassword: "change-me-root-password"
+    rootPassword: "root123456"
     database: "wordpress"
     user: "wpuser"
-    password: "change-me-wordpress-password"
+    password: "123456"
   service:
     port: 3306
 

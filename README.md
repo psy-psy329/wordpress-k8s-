@@ -1,43 +1,22 @@
 # wordpress-k8s
 
-将 WordPress + MySQL 从 Docker Compose 迁移到 Kubernetes 的实践项目，并使用 Helm 对 Kubernetes 资源进行参数化管理。
+将 WordPress + MySQL 从 Docker Compose 迁移到 Kubernetes 的实践项目。
 
-## 项目来源
+## 原项目
 
 - [wordpress-docker-ansible-deploy](https://github.com/psy-psy329/wordpress-docker-ansible-deploy)
-- 原项目基于 Ansible + Docker Compose，面向单机部署
-- 本项目进一步迁移到 Kubernetes，并补充 Ingress 和 Helm Chart
+- 基于 Ansible + Docker Compose 的单机部署方案
 
-## 项目目标
+## 项目内容
 
-- 从单机 Docker Compose 部署迁移到 Kubernetes 集群
+本项目保留了原有的 Kubernetes YAML 部署方式，并新增了 Helm Chart，方便使用参数化配置部署 WordPress 和 MySQL。
+
 - 使用 Deployment 管理 WordPress 和 MySQL
 - 使用 Service 实现集群内服务发现
-- 使用 PersistentVolumeClaim 持久化 MySQL 数据
-- 使用 Secret 管理数据库凭据
-- 使用 Ingress 提供 `blog.local` HTTP 访问入口
-- 使用 Helm values 对镜像、副本数、存储大小和域名进行配置
-
-## 架构
-
-```text
-Client
-  |
-  v
-NGINX Ingress (blog.local)
-  |
-  v
-WordPress Service
-  |
-  v
-WordPress Deployment
-  |
-  v
-MySQL Service
-  |
-  v
-MySQL Deployment ---- MySQL PVC
-```
+- 使用 PVC 持久化 MySQL 数据
+- 使用 Secret 配置 MySQL 环境变量
+- 使用 Ingress 通过 `blog.local` 访问 WordPress
+- 使用 Helm Chart 统一管理 Kubernetes 资源
 
 ## 目录结构
 
@@ -69,24 +48,15 @@ wordpress-k8s/
         `-- wordpress-ingress.yaml
 ```
 
-`mysql/mysql-secret.yaml` 用于保存本地真实密码，已被 `.gitignore` 排除。Helm Chart 中的密码仅为占位值，实际部署时应通过自定义 values 覆盖。
+## 环境要求
 
-## 前置条件
+- Kubernetes 集群
+- `kubectl`
+- Helm 3
+- NGINX Ingress Controller
+- 可用的默认 StorageClass
 
-- 已准备可用的 Kubernetes 集群
-- 已安装并配置 `kubectl`
-- 已安装 Helm 3
-- 集群中已安装 NGINX Ingress Controller
-- 集群提供可用的默认 StorageClass
-
-检查工具版本：
-
-```bash
-kubectl version --client
-helm version
-```
-
-## 方式一：使用原生 Kubernetes YAML
+## 方式一：使用 Kubernetes YAML
 
 ### 1. 创建 MySQL Secret
 
@@ -102,7 +72,7 @@ Windows PowerShell：
 Copy-Item mysql/mysql-secret.example.yaml mysql/mysql-secret.yaml
 ```
 
-编辑 `mysql/mysql-secret.yaml`，将密码占位符替换为实际值。
+编辑 `mysql/mysql-secret.yaml`，填写实际的数据库密码。该文件已被 `.gitignore` 排除，不会提交到仓库。
 
 ### 2. 部署 MySQL
 
@@ -123,78 +93,60 @@ kubectl apply -f wordpress/wordpress-ingress.yaml
 
 ## 方式二：使用 Helm Chart
 
-### 1. 检查 Chart
+查看 Chart 信息：
 
 ```bash
-helm lint ./wordpress-chart
-helm template wordpress ./wordpress-chart
+helm show chart ./wordpress-chart
 ```
 
-### 2. 准备本地配置
-
-复制一份本地 values 文件，并修改数据库密码：
+安装 Chart：
 
 ```bash
-cp wordpress-chart/values.yaml wordpress-chart/values.local.yaml
+helm install wordpress ./wordpress-chart
 ```
 
-Windows PowerShell：
-
-```powershell
-Copy-Item wordpress-chart/values.yaml wordpress-chart/values.local.yaml
-```
-
-编辑 `wordpress-chart/values.local.yaml` 中的以下字段：
-
-```yaml
-mysql:
-  secret:
-    rootPassword: "replace-with-a-strong-root-password"
-    password: "replace-with-a-strong-wordpress-password"
-```
-
-不要将包含真实密码的 `values.local.yaml` 提交到仓库。
-
-### 3. 安装或升级
+如果之前已经安装过，可以使用升级命令：
 
 ```bash
-helm upgrade --install wordpress ./wordpress-chart \
-  --namespace wordpress \
-  --create-namespace \
-  -f ./wordpress-chart/values.local.yaml
+helm upgrade wordpress ./wordpress-chart
 ```
 
-如果只进行临时测试，也可以直接使用默认 values：
+查看 Helm 发布状态：
 
 ```bash
-helm upgrade --install wordpress ./wordpress-chart \
-  --namespace wordpress \
-  --create-namespace
+helm list
+kubectl get deployments,pods,svc,pvc,ingress
 ```
 
-### 4. 查看 Helm 部署状态
+卸载 Helm 发布：
 
 ```bash
-helm list -n wordpress
-kubectl get deployments,pods,svc,pvc,ingress -n wordpress
+helm uninstall wordpress
 ```
+
+Chart 的主要配置位于 `wordpress-chart/values.yaml`，可以根据需要修改：
+
+- MySQL 镜像和副本数
+- MySQL 存储容量
+- MySQL 数据库、用户和密码
+- WordPress 镜像和副本数
+- WordPress Service 端口
+- Ingress 域名和 IngressClass
+
+当前 `values.yaml` 中的密码是测试配置，实际使用时建议替换为自己的密码，不要将真实密码提交到公共仓库。
 
 ## Ingress 访问
 
-当前 Ingress 默认配置为：
+当前 Ingress 使用域名：
 
-```yaml
-wordpress:
-  ingress:
-    enabled: true
-    host: blog.local
-    className: nginx
+```text
+blog.local
 ```
 
-确认 Ingress 地址：
+查看 Ingress 地址：
 
 ```bash
-kubectl get ingress -n wordpress
+kubectl get ingress wordpress-ingress
 ```
 
 然后将 Ingress Controller 的访问地址写入 hosts 文件：
@@ -206,48 +158,30 @@ kubectl get ingress -n wordpress
 - Linux/macOS：`/etc/hosts`
 - Windows：`C:\Windows\System32\drivers\etc\hosts`
 
-完成后访问 <http://blog.local>。
+配置完成后访问：
 
-如果暂时不需要 Ingress，可以在 Helm 部署时关闭：
-
-```bash
-helm upgrade --install wordpress ./wordpress-chart \
-  --namespace wordpress \
-  --create-namespace \
-  --set wordpress.ingress.enabled=false
+```text
+http://blog.local
 ```
 
-## 常用验证命令
+## 验证部署
 
 ```bash
-kubectl get pods -n wordpress
-kubectl get svc -n wordpress
-kubectl get pvc -n wordpress
-kubectl get ingress -n wordpress
-kubectl logs deployment/wordpress-deploy -n wordpress
-kubectl logs deployment/mysql-deploy -n wordpress
+kubectl get pods
+kubectl get svc
+kubectl get pvc
+kubectl get ingress
 ```
 
-检查 Helm 渲染结果：
+查看日志：
 
 ```bash
-helm template wordpress ./wordpress-chart \
-  --namespace wordpress \
-  -f ./wordpress-chart/values.local.yaml
+kubectl logs deployment/wordpress-deploy
+kubectl logs deployment/mysql-deploy
 ```
 
-## Kubernetes 能力对应
+## 项目定位
 
-| 能力 | Kubernetes / Helm 资源 |
-| --- | --- |
-| 应用编排 | Deployment |
-| 集群内服务发现 | Service |
-| MySQL 数据持久化 | PersistentVolumeClaim |
-| 故障后自动重建 Pod | Deployment Controller |
-| HTTP 域名访问 | Ingress |
-| 数据库凭据管理 | Secret |
-| 配置参数化和统一安装 | Helm Chart |
+这是一个用于学习 Kubernetes 和 Helm 的实践项目，重点展示从 Docker Compose 到 Kubernetes 的迁移过程，以及原生 YAML 和 Helm Chart 两种部署方式。
 
-## 当前范围
-
-这是一个用于学习和展示的 Kubernetes 迁移项目，当前使用单副本 WordPress 和 MySQL。项目暂未覆盖高可用数据库、TLS、备份恢复、健康检查和 CI/CD，这些可以作为后续扩展方向。
+当前项目使用单副本 WordPress 和 MySQL，后续可以继续扩展健康检查、WordPress 文件持久化、TLS、备份恢复和 CI/CD。
