@@ -1,0 +1,23 @@
+mysql:
+  image: mysql:8.0
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  storage: 1Gi
+  secret:
+    rootPassword: "change-me-root-password"
+    database: "wordpress"
+    user: "wpuser"
+    password: "change-me-wordpress-password"
+  service:
+    port: 3306
+
+wordpress:
+  image: wordpress:php8.2-apache
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    port: 80
+  ingress:
+    enabled: true
+    host: blog.local
+    className: nginx

@@ -1,2 +1,2 @@
 mysql/mysql-secret.yaml
-
+wordpress-chart/values.local.yaml
