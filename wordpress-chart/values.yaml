@@ -21,3 +21,7 @@ wordpress:
     enabled: true
     host: blog.local
     className: nginx
+  hpa:
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPU: 50

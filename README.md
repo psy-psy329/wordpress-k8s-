@@ -45,7 +45,8 @@ wordpress-k8s/
         |-- mysql-svc.yaml
         |-- wordpress-deploy.yaml
         |-- wordpress-svc.yaml
-        `-- wordpress-ingress.yaml
+        |-- wordpress-ingress.yaml
+        `-- wordpress-hpa.yaml
 ```
 
 ## 环境要求
@@ -132,6 +133,7 @@ Chart 的主要配置位于 `wordpress-chart/values.yaml`，可以根据需要�
 - WordPress 镜像和副本数
 - WordPress Service 端口
 - Ingress 域名和 IngressClass
+- WordPress HPA 的最小/最大副本数和目标 CPU 利用率
 
 当前 `values.yaml` 中的密码是测试配置，实际使用时建议替换为自己的密码，不要将真实密码提交到公共仓库。
 
@@ -171,6 +173,7 @@ kubectl get pods
 kubectl get svc
 kubectl get pvc
 kubectl get ingress
+kubectl get hpa
 ```
 
 查看日志：
@@ -185,3 +188,24 @@ kubectl logs deployment/mysql-deploy
 这是一个用于学习 Kubernetes 和 Helm 的实践项目，重点展示从 Docker Compose 到 Kubernetes 的迁移过程，以及原生 YAML 和 Helm Chart 两种部署方式。
 
 当前项目使用单副本 WordPress 和 MySQL，后续可以继续扩展健康检查、WordPress 文件持久化、TLS、备份恢复和 CI/CD。
+
+## WordPress 水平扩缩容
+
+Helm Chart 包含基于 CPU 利用率的 HorizontalPodAutoscaler，参数位于 `wordpress-chart/values.yaml`：
+
+```yaml
+wordpress:
+  hpa:
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPU: 50
+```
+
+HPA 需要集群提供可用的 Metrics Server 才能读取 CPU 指标。检查 HPA 状态：
+
+```bash
+kubectl get hpa
+kubectl describe hpa wordpress-hpa
+```
+
+CPU 利用率型 HPA 还需要 WordPress 容器定义 CPU `requests`。当前 Deployment 模板未配置 CPU request，因此如果 HPA 显示 `unknown` 或无法计算利用率，需要在工作负载配置中为 WordPress 设置 CPU request 后再观察扩缩容状态。
